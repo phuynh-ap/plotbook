@@ -31,6 +31,9 @@
 #
 #   Revision history: ----------------------------------------------------------
 #
+#   2026/09/28  PVH
+#   Modified for py 3.11
+#
 #   2022/12/21  PVH
 #   Moved to using custom tools library.
 #
@@ -92,6 +95,7 @@ sys.path.append(PSSE_LOCATION)
 os.environ["PATH"] = os.environ["PATH"] + ";" +  PSSE_LOCATION
 
 # ---- Resuming imports -------------------------------------------------------
+import psse35
 import psspy
 import dyntools
 import redirect
@@ -299,7 +303,7 @@ def getRelevantChans(context, datChID, details):
         substr  = re.compile(".*ANGLM.*")
         tempDict = {}
 
-        for key, value in datChID.iteritems():
+        for key, value in datChID.items():
             if(substr.match(value)):
                 tempDict[key] = value
 
@@ -313,7 +317,7 @@ def getRelevantChans(context, datChID, details):
 
         # Filter out wind machines, reverse lookup
         substr  = re.compile("^(?!.*(" + strFilter + ").*)")
-        for key, value in tempDict.iteritems():
+        for key, value in tempDict.items():
             if(substr.match(value)):
                 #print("Match: " + str(key) + ", " + value)
                 newDict[key] = value
@@ -409,7 +413,7 @@ def getRelevantChans(context, datChID, details):
 
         tempDict = {}
 
-        for key, value in datChID.iteritems():
+        for key, value in datChID.items():
             if(substr.match(value)):
                 tempDict[key] = value
 
@@ -417,7 +421,7 @@ def getRelevantChans(context, datChID, details):
         for bus in details:
             substr  = re.compile(".*" + bus + ".*")
 
-            for key, value in tempDict.iteritems():
+            for key, value in tempDict.items():
                 if(substr.match(value)):
                     newDict[key] = value
 
@@ -564,7 +568,7 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                 df = df.set_index("time")
 
                 # Add channels to the dataframe
-                for key, value in singleplt.itemY.iteritems():
+                for key, value in singleplt.itemY.items():
                     df[value] = myPlots.datCh[key]
 
                 # Set current axis
@@ -605,9 +609,9 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                 # Machine MVAR PU output plots (small)
                 elif(   (singleplt.type == dictPlotTypes["MACH_MVAR"])
                         ):
-                    plt.ylim(-1.5, 1.5)                                             # Fix y-axis range
+                    plt.ylim(-2, 3)                                             # Fix y-axis range
                     ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))        # Set major tick spacing
-                    ax.yaxis.set_minor_locator(plt.MultipleLocator(0.05))       # Set minor tick spacing
+                    ax.yaxis.set_minor_locator(plt.MultipleLocator(0.1))        # Set minor tick spacing
 
                 # All other plots use auto ticks/y-axis ranges
                 else:
@@ -714,7 +718,7 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                     ctrMarker = 0
 
                     # Experimental: Plot all series by iterating through the dataframe
-                    for (colName, colData) in df.iteritems():
+                    for (colName, colData) in df.items():
                         #if(colName != "time"):
 
                         # Show marker or not, depending on legend visibility
@@ -749,7 +753,7 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                                     linewidth   = lineWidth,
                                     legend      = singleplt.bLegend,
                                     marker      = markerUse,
-                                    markerSize  = markerSize,
+                                    markersize  = markerSize,
                                     markevery   = markEvery     # To add some offset to markers
                                     )
 
