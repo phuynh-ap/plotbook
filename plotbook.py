@@ -870,7 +870,6 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
 
 # ---- Start of processOutFile() ----------------------------------------------
 def processOutFile(args):
-
     (
         ctrOut,
         fNameOut,
@@ -878,109 +877,129 @@ def processOutFile(args):
         argPlot
     ) = args
 
-    print(f"\n----- out file: {fNameOut}")
+    try:
 
-    myPlots = []
+        print(f"\n----- {ctrOut:04d} out file: {fNameOut}")
 
-    objOut = dyntools.CHNF(fNameOut, outvrsn=0)
+        myPlots = []
 
-    datShortTitle, datChID, datCh = objOut.get_data(
-        outfile=fNameOut
-    )
+        try:
+            objOut = dyntools.CHNF(fNameOut, outvrsn=0)
+        except Exception as e:
+            return {"success": False,
+                    "file": fNameOut,
+                    "error": str(e)
+                    }
 
-    for arg in argPlot:
 
-        showLegend = True
-
-        if(arg[0] == dictPlotTypes["ANGL_ALL"]):
-            listUse = arg[2:]
-            chanList = getRelevantChans(
-                arg[0],
-                datChID,
-                listUse
-            )
-
-            labelY = "Angle (deg)"
-            showLegend = False
-
-        elif(
-            (arg[0] == dictPlotTypes["ANGL_M"]) or
-            (arg[0] == dictPlotTypes["BUSVOLT"]) or
-            (arg[0] == dictPlotTypes["LINE_MW"]) or
-            (arg[0] == dictPlotTypes["LINE_MVAR"]) or
-            (arg[0] == dictPlotTypes["FREQ"]) or
-            (arg[0] == dictPlotTypes["PEPL"]) or
-            (arg[0] == dictPlotTypes["PMECH"]) or
-            (arg[0] == dictPlotTypes["PELEC"]) or
-            (arg[0] == dictPlotTypes["PLOAD"]) or
-            (arg[0] == dictPlotTypes["PELEC_PLOAD"]) or
-            (arg[0] == dictPlotTypes["CMLD_ALL"]) or
-            (arg[0] == dictPlotTypes["CORRIDOR"]) or
-            (arg[0] == dictPlotTypes["MACH_MW"]) or
-            (arg[0] == dictPlotTypes["MACH_MVAR"])
-        ):
-
-            listUse = arg[2:]
-            chanList = getRelevantChans(
-                arg[0],
-                datChID,
-                listUse
-            )
-
-            labelMap = {
-                "ANGL_M": "Angle (deg)",
-                "BUSVOLT": "V PU",
-                "LINE_MW": "MW",
-                "LINE_MVAR": "MVAR",
-                "FREQ": "Freq (Hz)",
-                "PEPL": "PE-PL (MW)",
-                "PMECH": "PMech",
-                "PELEC": "MW",
-                "PLOAD": "MW",
-                "PELEC_PLOAD": "MW",
-                "CMLD_ALL": "MW",
-                "CORRIDOR": "MW",
-                "MACH_MW": "MW (PU)",
-                "MACH_MVAR": "MVAR (PU)"
-            }
-
-            labelY = labelMap[arg[0]]
-
-        sTitleUse = arg[1]
-        sTitlePageUse = fNameOut[:-4]
-
-        myPlots.append(
-            Chart(
-                titleFig=sTitleUse,
-                titlePage=sTitlePageUse,
-                itemY=chanList,
-                labelX="Time (s)",
-                labelY=labelY,
-                bLegend=showLegend,
-                type=arg[0]
-            )
+        datShortTitle, datChID, datCh = objOut.get_data(
+            outfile=fNameOut
         )
 
-    myCase = ChannelPlot(
-        datCh=datCh,
-        myPlot=myPlots
-    )
+        for arg in argPlot:
 
-    outBaseName = os.path.splitext(
-        os.path.basename(fNameOut)
-    )[0]
+            showLegend = True
 
-    pdfName = os.path.join(
-        outPdfDir,
-        f"plt{ctrOut:04d}_{outBaseName}"
-    )
+            if(arg[0] == dictPlotTypes["ANGL_ALL"]):
+                listUse = arg[2:]
+                chanList = getRelevantChans(
+                    arg[0],
+                    datChID,
+                    listUse
+                )
 
-    makePlot(
-        [myCase],
-        fNamePdf=pdfName
-    )
+                labelY = "Angle (deg)"
+                showLegend = False
 
-    return pdfName
+            elif(
+                (arg[0] == dictPlotTypes["ANGL_M"]) or
+                (arg[0] == dictPlotTypes["BUSVOLT"]) or
+                (arg[0] == dictPlotTypes["LINE_MW"]) or
+                (arg[0] == dictPlotTypes["LINE_MVAR"]) or
+                (arg[0] == dictPlotTypes["FREQ"]) or
+                (arg[0] == dictPlotTypes["PEPL"]) or
+                (arg[0] == dictPlotTypes["PMECH"]) or
+                (arg[0] == dictPlotTypes["PELEC"]) or
+                (arg[0] == dictPlotTypes["PLOAD"]) or
+                (arg[0] == dictPlotTypes["PELEC_PLOAD"]) or
+                (arg[0] == dictPlotTypes["CMLD_ALL"]) or
+                (arg[0] == dictPlotTypes["CORRIDOR"]) or
+                (arg[0] == dictPlotTypes["MACH_MW"]) or
+                (arg[0] == dictPlotTypes["MACH_MVAR"])
+            ):
+
+                listUse = arg[2:]
+                chanList = getRelevantChans(
+                    arg[0],
+                    datChID,
+                    listUse
+                )
+
+                labelMap = {
+                    "ANGL_M": "Angle (deg)",
+                    "BUSVOLT": "V PU",
+                    "LINE_MW": "MW",
+                    "LINE_MVAR": "MVAR",
+                    "FREQ": "Freq (Hz)",
+                    "PEPL": "PE-PL (MW)",
+                    "PMECH": "PMech",
+                    "PELEC": "MW",
+                    "PLOAD": "MW",
+                    "PELEC_PLOAD": "MW",
+                    "CMLD_ALL": "MW",
+                    "CORRIDOR": "MW",
+                    "MACH_MW": "MW (PU)",
+                    "MACH_MVAR": "MVAR (PU)"
+                }
+
+                labelY = labelMap[arg[0]]
+
+            sTitleUse = arg[1]
+            sTitlePageUse = fNameOut[:-4]
+
+            myPlots.append(
+                Chart(
+                    titleFig=sTitleUse,
+                    titlePage=sTitlePageUse,
+                    itemY=chanList,
+                    labelX="Time (s)",
+                    labelY=labelY,
+                    bLegend=showLegend,
+                    type=arg[0]
+                )
+            )
+
+        myCase = ChannelPlot(
+            datCh=datCh,
+            myPlot=myPlots
+        )
+
+        outBaseName = os.path.splitext(
+            os.path.basename(fNameOut)
+        )[0]
+
+        pdfName = os.path.join( outPdfDir,
+                                f"plt{ctrOut:04d}_{outBaseName}"
+                                )
+
+        makePlot(
+            [myCase],
+            fNamePdf=pdfName
+        )
+
+        return {
+            "success": True,
+            "file": fNameOut,
+            "pdf": pdfName
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "file": fNameOut,
+            "error": repr(e)
+        }
 # ---- End of   processOutFile() ----------------------------------------------
 
 
@@ -1073,17 +1092,36 @@ if __name__ == "__main__":
 
         appLog.info(f"Starting {numThreads} worker processes.")
 
-        with ProcessPoolExecutor(
-                max_workers=numThreads) as pool:
+        failedFiles = []        # list of failed files
 
-            for pdfName in pool.map(
-                    processOutFile,
-                    jobArgs,
-                    chunksize=5):
+        with ProcessPoolExecutor(max_workers = numThreads) as pool:
 
-                appLog.info(
-                    f"Completed {pdfName}.pdf"
-                )
+            for result in pool.map( processOutFile,
+                                    jobArgs,
+                                    chunksize = 5):
+
+                if result["success"]:
+                    appLog.info(f"Completed {result['pdf']}.pdf")
+
+                else:
+                    failedFiles.append(result)
+
+                    appLog.error(f"Failed: {result['file']}")
+
+        if len(failedFiles) > 0:
+            with open("plotbook_failures.txt", "w") as fp:
+
+                fp.write(f"Failed files: {len(failedFiles)}\n\n")
+
+                for item in failedFiles:
+                    fp.write(f"{item['file']}\n")
+
+                    fp.write(f"    {item['error']}\n\n")
+
+            appLog.warning(
+                f"{len(failedFiles)} files failed. "
+                f"See plotbook_failures.txt"
+            )
 
     # Calculate end time and duration
     timeEnd     = time.time()
