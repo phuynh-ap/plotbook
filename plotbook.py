@@ -62,6 +62,9 @@ import math         # math functions
 
 import datetime, time         # timekeeping
 
+# multiproc
+from concurrent.futures import ProcessPoolExecutor
+
 # More plotting imports
 import numpy as np      # Array manipulations
 import pandas as pd     # Data analysis library
@@ -70,6 +73,8 @@ import gc               # Garbage collection
 import itertools        # Cycling library
 from matplotlib.backends.backend_pdf import PdfPages    # .pdf support
 import matplotlib.ticker as ticker                      # Axis tick control
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
@@ -863,6 +868,122 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
 # ---- End of   makePlot() ----------------------------------------------------
 
 
+# ---- Start of processOutFile() ----------------------------------------------
+def processOutFile(args):
+
+    (
+        ctrOut,
+        fNameOut,
+        totCases,
+        argPlot
+    ) = args
+
+    print(f"\n----- out file: {fNameOut}")
+
+    myPlots = []
+
+    objOut = dyntools.CHNF(fNameOut, outvrsn=0)
+
+    datShortTitle, datChID, datCh = objOut.get_data(
+        outfile=fNameOut
+    )
+
+    for arg in argPlot:
+
+        showLegend = True
+
+        if(arg[0] == dictPlotTypes["ANGL_ALL"]):
+            listUse = arg[2:]
+            chanList = getRelevantChans(
+                arg[0],
+                datChID,
+                listUse
+            )
+
+            labelY = "Angle (deg)"
+            showLegend = False
+
+        elif(
+            (arg[0] == dictPlotTypes["ANGL_M"]) or
+            (arg[0] == dictPlotTypes["BUSVOLT"]) or
+            (arg[0] == dictPlotTypes["LINE_MW"]) or
+            (arg[0] == dictPlotTypes["LINE_MVAR"]) or
+            (arg[0] == dictPlotTypes["FREQ"]) or
+            (arg[0] == dictPlotTypes["PEPL"]) or
+            (arg[0] == dictPlotTypes["PMECH"]) or
+            (arg[0] == dictPlotTypes["PELEC"]) or
+            (arg[0] == dictPlotTypes["PLOAD"]) or
+            (arg[0] == dictPlotTypes["PELEC_PLOAD"]) or
+            (arg[0] == dictPlotTypes["CMLD_ALL"]) or
+            (arg[0] == dictPlotTypes["CORRIDOR"]) or
+            (arg[0] == dictPlotTypes["MACH_MW"]) or
+            (arg[0] == dictPlotTypes["MACH_MVAR"])
+        ):
+
+            listUse = arg[2:]
+            chanList = getRelevantChans(
+                arg[0],
+                datChID,
+                listUse
+            )
+
+            labelMap = {
+                "ANGL_M": "Angle (deg)",
+                "BUSVOLT": "V PU",
+                "LINE_MW": "MW",
+                "LINE_MVAR": "MVAR",
+                "FREQ": "Freq (Hz)",
+                "PEPL": "PE-PL (MW)",
+                "PMECH": "PMech",
+                "PELEC": "MW",
+                "PLOAD": "MW",
+                "PELEC_PLOAD": "MW",
+                "CMLD_ALL": "MW",
+                "CORRIDOR": "MW",
+                "MACH_MW": "MW (PU)",
+                "MACH_MVAR": "MVAR (PU)"
+            }
+
+            labelY = labelMap[arg[0]]
+
+        sTitleUse = arg[1]
+        sTitlePageUse = fNameOut[:-4]
+
+        myPlots.append(
+            Chart(
+                titleFig=sTitleUse,
+                titlePage=sTitlePageUse,
+                itemY=chanList,
+                labelX="Time (s)",
+                labelY=labelY,
+                bLegend=showLegend,
+                type=arg[0]
+            )
+        )
+
+    myCase = ChannelPlot(
+        datCh=datCh,
+        myPlot=myPlots
+    )
+
+    outBaseName = os.path.splitext(
+        os.path.basename(fNameOut)
+    )[0]
+
+    pdfName = os.path.join(
+        outPdfDir,
+        f"plt{ctrOut:04d}_{outBaseName}"
+    )
+
+    makePlot(
+        [myCase],
+        fNamePdf=pdfName
+    )
+
+    return pdfName
+# ---- End of   processOutFile() ----------------------------------------------
+
+
 # ---- Start of main() --------------------------------------------------------
 # def main:
 if __name__ == "__main__":
@@ -936,125 +1057,33 @@ if __name__ == "__main__":
         totCases = len(listFilesOut)
 
         # For each channel file
-        for ctrOut, fNameOut in enumerate(listFilesOut, start = 1):
-            print("\n")
-            print(f"----- out file: {fNameOut}")
-            myPlots     = []
+        jobArgs = []
 
-            appLog.info("Processing channel output file " + str(ctrOut) + "/" + str(totCases) + ": " + fNameOut + ".")
+        for ctrOut, fNameOut in enumerate(
+                listFilesOut,
+                start=1):
 
-            # Get data from outfile
-            objOut = dyntools.CHNF(fNameOut, outvrsn = 0)
-            datShortTitle, datChID, datCh = objOut.get_data(outfile = fNameOut)
+            jobArgs.append(
+                (   ctrOut,
+                    fNameOut,
+                    totCases,
+                    argPlot
+                )
+            )
 
-            # Get ranges
-            datChanRange = objOut.get_range(outfile = fNameOut)
+        appLog.info(f"Starting {numThreads} worker processes.")
 
-            # For each plot
-            for arg in argPlot:
-                showLegend = True                                               # Default plot legend on.
+        with ProcessPoolExecutor(
+                max_workers=numThreads) as pool:
 
-                # All NS machine angles
-                if(arg[0] == dictPlotTypes["ANGL_ALL"]):
-                    list     = arg[2:]
-                    chanList = getRelevantChans(arg[0], datChID, list)          # Get list of relevant channels
+            for pdfName in pool.map(
+                    processOutFile,
+                    jobArgs,
+                    chunksize=5):
 
-                    itemY   = chanList
-                    labelY  = "Angle (deg)"
-                    showLegend = False
-
-                # These plot types all behave the same, with only different
-                # patterns and Y-axis labels
-                elif(   (arg[0] == dictPlotTypes["ANGL_M"]) or
-                        (arg[0] == dictPlotTypes["BUSVOLT"]) or
-                        (arg[0] == dictPlotTypes["LINE_MW"]) or
-                        (arg[0] == dictPlotTypes["LINE_MVAR"]) or
-                        (arg[0] == dictPlotTypes["FREQ"]) or
-                        (arg[0] == dictPlotTypes["PEPL"]) or
-                        (arg[0] == dictPlotTypes["PMECH"]) or
-                        (arg[0] == dictPlotTypes["PELEC"]) or
-                        (arg[0] == dictPlotTypes["PLOAD"]) or
-                        (arg[0] == dictPlotTypes["PELEC_PLOAD"]) or
-                        (arg[0] == dictPlotTypes["CMLD_ALL"]) or
-                        (arg[0] == dictPlotTypes["CORRIDOR"]) or
-                        (arg[0] == dictPlotTypes["MACH_MW"]) or
-                        (arg[0] == dictPlotTypes["MACH_MVAR"])
-                        ):
-                    # Get list of relevant channels
-                    list        = arg[2:]                                       # Skip over the first item (the plot type).
-                    chanList    = getRelevantChans(arg[0], datChID, list)
-
-                    itemY       = chanList
-
-                    # Set custom Y-axis label
-                    if(arg[0] == dictPlotTypes["ANGL_M"]):
-                        labelY  = "Angle (deg)"
-                    elif(arg[0] == dictPlotTypes["BUSVOLT"]):
-                        labelY  = "V PU"
-                    elif(arg[0] == dictPlotTypes["LINE_MW"]):
-                        labelY = "MW"
-                    elif(arg[0] == dictPlotTypes["LINE_MVAR"]):
-                        labelY = "MVAR"
-                    elif(arg[0] == dictPlotTypes["FREQ"]):
-                        labelY = "Freq (Hz)"
-                    elif(arg[0] == dictPlotTypes["PEPL"]):
-                        labelY = "PE-PL (MW)"
-                    elif(arg[0] == dictPlotTypes["PMECH"]):
-                        labelY = "PMech"
-                    elif(arg[0] == dictPlotTypes["PELEC"]):
-                        labelY = "MW"
-                    elif(arg[0] == dictPlotTypes["PLOAD"]):
-                        labelY = "MW"
-                    elif(arg[0] == dictPlotTypes["PELEC_PLOAD"]):
-                        labelY = "MW"
-                    elif(arg[0] == dictPlotTypes["CMLD_ALL"]):
-                        labelY = "MW"
-                    elif(arg[0] == dictPlotTypes["CORRIDOR"]):
-                        labelY = "MW"
-                    elif(arg[0] == dictPlotTypes["MACH_MW"]):
-                        labelY = "MW (PU)"
-                    elif(arg[0] == dictPlotTypes["MACH_MVAR"]):
-                        labelY = "MVAR (PU)"
-
-                # All CMLD load
-                elif(arg[0] == dictPlotTypes["CMLD_ALL"]):
-                    labelY = "MW"
-
-
-                else:
-                    appLog.info("Error: Could not process argument [" + arg[0] + "]")
-
-                sTitleUse       = arg[1]
-                sTitlePageUse   = fNameOut[:-4]
-
-                myPlots.append(Chart(   titleFig    = sTitleUse,
-                                        titlePage   = sTitlePageUse,
-                                        itemY       = chanList,
-                                        labelX      = "Time (s)",
-                                        labelY      = labelY,
-                                        bLegend     = showLegend,
-                                        type        = arg[0]
-                                        ))
-
-            myCase = ChannelPlot(   datCh   = datCh,
-                                    myPlot  = myPlots
-                                    )
-
-            outBaseName = os.path.splitext(
-                os.path.basename(fNameOut)
-            )[0]
-
-            pdfName = os.path.join( outPdfDir,
-                                    f"plt{ctrPdfs:04d}_{outBaseName}"
-                                    )
-            appLog.info(f"Writing {pdfName}.pdf")
-
-            makePlot(   [myCase],
-                        fNamePdf    = pdfName,
-                        appLog      = appLog
-                    )
-
-            ctrPdfs = ctrPdfs + 1
+                appLog.info(
+                    f"Completed {pdfName}.pdf"
+                )
 
     # Calculate end time and duration
     timeEnd     = time.time()
