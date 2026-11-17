@@ -3,10 +3,10 @@
 #   Plots to .pdf based on input file.
 #
 #   Syntax:
-#   python plotbook.py [input file] [file with list of out files to process]
+#   python plotbook.py [num threads] [input file] [file with list of out files to process]
 #
 #   example:
-#   python ..\..\..\scripts\plotbook.py plotbook.txt list.txt
+#   python ..\..\..\scripts\plotbook.py 20 plotbook.txt list.txt
 #
 #   ----------------------------------------------------------------------------
 #   Schema for the plotbook input file (comma-separated):
@@ -30,6 +30,9 @@
 #   ---- End of example
 #
 #   Revision history: ----------------------------------------------------------
+#
+#   2026/09/28  PVH
+#   Modified for py 3.11
 #
 #   2022/12/21  PVH
 #   Moved to using custom tools library.
@@ -92,6 +95,7 @@ sys.path.append(PSSE_LOCATION)
 os.environ["PATH"] = os.environ["PATH"] + ";" +  PSSE_LOCATION
 
 # ---- Resuming imports -------------------------------------------------------
+import psse35
 import psspy
 import dyntools
 import redirect
@@ -107,6 +111,8 @@ import custTools
 
 
 # ---- Start of global definitions --------------------------------------------
+outPdfDir       = "outpdf"                      # output pdf directory
+
 dictPlotTypes   = { "ANGL_ALL"  : "ANGL_ALL",
                     "ANGL_M"    : "ANGL_M",
                     "CORRIDOR"  : "CORRIDOR",
@@ -299,12 +305,13 @@ def getRelevantChans(context, datChID, details):
         substr  = re.compile(".*ANGLM.*")
         tempDict = {}
 
-        for key, value in datChID.iteritems():
+        for key, value in datChID.items():
             if(substr.match(value)):
                 tempDict[key] = value
 
         # Build machine filter (wind machines and any special exclusions)
-        strFilter = "19C|106W|109S|110W|92N|89N|91N|93N|102V|120C|98V|IR542|301NS_MLP"
+        #strFilter = "19C|106W|109S|110W|92N|89N|91N|93N|102V|120C|98V|IR542|301NS_MLP1|301NS_MLP2|IR760|IR761|IR673|IR686|IR670|112W|IR668|IR739|IR618_742|IR728|IR732|IR826|IR677|50N_ST1|BESS|IR669|IR675"
+        strFilter = "301NS_MLP"
         
         # Add on any extra exclusions to the filter pattern, if supplied
         if(len(details) > 0):
@@ -313,7 +320,7 @@ def getRelevantChans(context, datChID, details):
 
         # Filter out wind machines, reverse lookup
         substr  = re.compile("^(?!.*(" + strFilter + ").*)")
-        for key, value in tempDict.iteritems():
+        for key, value in tempDict.items():
             if(substr.match(value)):
                 #print("Match: " + str(key) + ", " + value)
                 newDict[key] = value
@@ -409,7 +416,7 @@ def getRelevantChans(context, datChID, details):
 
         tempDict = {}
 
-        for key, value in datChID.iteritems():
+        for key, value in datChID.items():
             if(substr.match(value)):
                 tempDict[key] = value
 
@@ -417,7 +424,7 @@ def getRelevantChans(context, datChID, details):
         for bus in details:
             substr  = re.compile(".*" + bus + ".*")
 
-            for key, value in tempDict.iteritems():
+            for key, value in tempDict.items():
                 if(substr.match(value)):
                     newDict[key] = value
 
@@ -519,7 +526,7 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
             totPdfPages     = (totCasePages) * len(myCases)                                 # Total amount of pages in plotbook, counting fr 0
             
             #print("totCasePages: " + str(totCasePages) + ", len(myPlots.myPlot): " + str(len(myPlots.myPlot)) + ", layouts: " + str(layout[0] * layout[1]) + ".")
-            appLog.info("Plotting case " + str(ctrCase + 1) + "/" + str(totPkgCase) + ".")
+            #appLog.info("Plotting case " + str(ctrCase + 1) + "/" + str(totPkgCase) + ".")
 
             # Roll through the plots in each case
             for ctr, singleplt in enumerate(myPlots.myPlot):
@@ -560,12 +567,27 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                 #df = pd.DataFrame({ "time"      : myPlots.datCh["time"]
                 #                    })
 
-                df = pd.DataFrame.from_dict({"time"  : myPlots.datCh["time"]})
-                df = df.set_index("time")
+                if(0):
+                    df = pd.DataFrame.from_dict({"time"  : myPlots.datCh["time"]})
+                    df = df.set_index("time")
 
-                # Add channels to the dataframe
-                for key, value in singleplt.itemY.iteritems():
-                    df[value] = myPlots.datCh[key]
+                    # Add channels to the dataframe
+                    for key, value in singleplt.itemY.items():
+                        df[value] = myPlots.datCh[key]
+                else:
+                    # Build dataframe in a single operation to avoid fragmentation
+
+                    chanData = {
+                        value: myPlots.datCh[key]
+                        for key, value in singleplt.itemY.items()
+                    }
+
+                    df = pd.DataFrame(
+                        chanData,
+                        index=myPlots.datCh["time"]
+                    )
+
+                    df.index.name = "time"
 
                 # Set current axis
                 ax  = plt.gca()                            
@@ -605,9 +627,9 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                 # Machine MVAR PU output plots (small)
                 elif(   (singleplt.type == dictPlotTypes["MACH_MVAR"])
                         ):
-                    plt.ylim(-1.5, 1.5)                                             # Fix y-axis range
+                    plt.ylim(-2, 3)                                             # Fix y-axis range
                     ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))        # Set major tick spacing
-                    ax.yaxis.set_minor_locator(plt.MultipleLocator(0.05))       # Set minor tick spacing
+                    ax.yaxis.set_minor_locator(plt.MultipleLocator(0.1))        # Set minor tick spacing
 
                 # All other plots use auto ticks/y-axis ranges
                 else:
@@ -714,7 +736,7 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                     ctrMarker = 0
 
                     # Experimental: Plot all series by iterating through the dataframe
-                    for (colName, colData) in df.iteritems():
+                    for (colName, colData) in df.items():
                         #if(colName != "time"):
 
                         # Show marker or not, depending on legend visibility
@@ -749,7 +771,7 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
                                     linewidth   = lineWidth,
                                     legend      = singleplt.bLegend,
                                     marker      = markerUse,
-                                    markerSize  = markerSize,
+                                    markersize  = markerSize,
                                     markevery   = markEvery     # To add some offset to markers
                                     )
 
@@ -846,11 +868,12 @@ def makePlot(myCases, fNamePdf = "myPlots", appLog = 0, layout = (2, 2)):
 if __name__ == "__main__":
 
     bContentsFound  = 0                                                         # Flag for contents found.
-    maxPdfCase      = 8                                                         # Max cases for pdf (due to memory problems)
-    ctrCases        = 0                                                         # Counter for cases in a pdf
-    ctrPdfs         = 0                                                         # Running counter of output pdfs
-    bPlotsInQueue   = 1                                                         # Flag for remaining plots to be saved to pdf
+    ctrPdfs         = 1                                                         # Running counter of output pdfs
     fNamePdf        = "myPlots"                                                 # Output pdf filename, w/o extension
+
+    # create output directory
+    if not os.path.exists(outPdfDir):
+        os.makedirs(outPdfDir)
 
     # Benchmarking time placeholders
     timeStart   = time.time()
@@ -883,17 +906,21 @@ if __name__ == "__main__":
     appLog.addHandler(sLog)
 
     # Parse arguments
+    # Get number of threads
+    if(len(sys.argv) >= 3):
+        numThreads      = int(sys.argv[1])
+
     # Process plot file
-    if(len(sys.argv) >= 2):
-        fNameRunList    = sys.argv[1]
+    if(len(sys.argv) >= 3):
+        fNameRunList    = sys.argv[2]
         bContentsFound  = 1
         
     # Process file list, if specified
-    if(len(sys.argv) >= 3):
-        fNameOutList    = sys.argv[2]
+    if(len(sys.argv) >= 4):
+        fNameOutList    = sys.argv[3]
         bFileListFound  = 1
         
-        fNamePdf        = sys.argv[2].rsplit(".", 1)[0]             # Remove extension (after last ".")
+        fNamePdf        = sys.argv[3].rsplit(".", 1)[0]             # Remove extension (after last ".")
 
     # Process file list (either default everything or specific list
     if(bFileListFound):
@@ -904,13 +931,14 @@ if __name__ == "__main__":
         listFilesOut    = glob.glob("*.out")
 
     if(bContentsFound == 1):
-        myCases = []
         argPlot = readRunFile(fNameRunList)
 
         totCases = len(listFilesOut)
 
         # For each channel file
         for ctrOut, fNameOut in enumerate(listFilesOut, start = 1):
+            print("\n")
+            print(f"----- out file: {fNameOut}")
             myPlots     = []
 
             appLog.info("Processing channel output file " + str(ctrOut) + "/" + str(totCases) + ": " + fNameOut + ".")
@@ -1008,33 +1036,25 @@ if __name__ == "__main__":
                                         type        = arg[0]
                                         ))
 
-            myCases.append(ChannelPlot( datCh   = datCh,
-                                        myPlot  = myPlots
-                                        ))
-            ctrCases = ctrCases + 1
-            
-            # Dump to pdf if we've maxed out the cases per pdf, for situations
-            # where the quantity of out files can fill up memory.
-            if(ctrCases >= maxPdfCase):
-                ctrCases = 0
-                
-                makePlot(myCases,
-                    fNamePdf    = fNamePdf + "_" + str(ctrPdfs),
-                    appLog      = appLog
+            myCase = ChannelPlot(   datCh   = datCh,
+                                    myPlot  = myPlots
+                                    )
+
+            outBaseName = os.path.splitext(
+                os.path.basename(fNameOut)
+            )[0]
+
+            pdfName = os.path.join( outPdfDir,
+                                    f"plt{ctrPdfs:04d}_{outBaseName}"
+                                    )
+            appLog.info(f"Writing {pdfName}.pdf")
+
+            makePlot(   [myCase],
+                        fNamePdf    = pdfName,
+                        appLog      = appLog
                     )
 
-                ctrPdfs         = ctrPdfs + 1
-                bPlotsInQueue   = 0
-                myCases[:]      = []                                            # Clear the list
-            else:
-                bPlotsInQueue   = 1
-
-        if(bPlotsInQueue == 1):
             ctrPdfs = ctrPdfs + 1
-            makePlot(myCases,
-                    fNamePdf    = fNamePdf + "_" + str(ctrPdfs),
-                    appLog      = appLog
-                    )
 
     # Calculate end time and duration
     timeEnd     = time.time()
