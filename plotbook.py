@@ -879,18 +879,14 @@ def processOutFile(args):
 
     try:
 
-        print(f"\n----- {ctrOut:04d} out file: {fNameOut}")
+        print(  f"\n[{os.getpid()}] "
+                f"{ctrOut:04d}/{totCases:04d} "
+                f"out file: {fNameOut}"
+                )
 
         myPlots = []
 
-        try:
-            objOut = dyntools.CHNF(fNameOut, outvrsn=0)
-        except Exception as e:
-            return {"success": False,
-                    "file": fNameOut,
-                    "error": str(e)
-                    }
-
+        objOut = dyntools.CHNF(fNameOut, outvrsn=0)
 
         datShortTitle, datChID, datCh = objOut.get_data(
             outfile=fNameOut
@@ -989,6 +985,7 @@ def processOutFile(args):
 
         return {
             "success": True,
+            "index": ctrOut,
             "file": fNameOut,
             "pdf": pdfName
         }
@@ -997,6 +994,7 @@ def processOutFile(args):
 
         return {
             "success": False,
+            "index": ctrOut,
             "file": fNameOut,
             "error": repr(e)
         }
@@ -1106,7 +1104,10 @@ if __name__ == "__main__":
                 else:
                     failedFiles.append(result)
 
-                    appLog.error(f"Failed: {result['file']}")
+                    appLog.error(
+                        f"Failed [{result['index']:04d}/{totCases:04d}]: "
+                        f"{result['file']}"
+                    )
 
         if len(failedFiles) > 0:
             with open("plotbook_failures.txt", "w") as fp:
@@ -1114,9 +1115,15 @@ if __name__ == "__main__":
                 fp.write(f"Failed files: {len(failedFiles)}\n\n")
 
                 for item in failedFiles:
-                    fp.write(f"{item['file']}\n")
 
-                    fp.write(f"    {item['error']}\n\n")
+                    fp.write(
+                        f"[{item['index']:04d}/{totCases:04d}] "
+                        f"{item['file']}\n"
+                    )
+
+                    fp.write(
+                        f"    {item['error']}\n\n"
+                    )
 
             appLog.warning(
                 f"{len(failedFiles)} files failed. "
